@@ -1,94 +1,59 @@
-import pandas as pd 
-import numpy as np
-import matplotlib.pyplot as plt
+from pathlib import Path
+
+import pandas as pd
 
 
-#reading data
-df = pd.read_csv("retail_sales_dataset.csv",encoding = "latin1")
+folder = Path(__file__).resolve().parent
+data_file = folder / "retail_sales_dataset.csv.csv"
+cleaned_file = folder / "retail_sales_cleaned.csv"
 
-pd.set_option('display.max_columns', None)
+# Read the sales data
+df = pd.read_csv(data_file)
+
 print("First five rows:")
 print(df.head())
-
-print("Dataset shape(rows, columns):")
-print(df.shape)
-
-print("Column names:")
-print(df.columns.tolist())
-
-print("Data types and non-null counts:")
-df.info()
-
-print("Numerical summary")
-print(df.describe())
-
-print("Missing values by column:")
+print("\nDataset shape:", df.shape)
+print("\nColumns:", df.columns.tolist())
+print("\nMissing values:")
 print(df.isna().sum())
+print("\nDuplicate rows:", df.duplicated().sum())
 
-print("Duplicate rows:")
-print(df.duplicated().sum())
+# Clean the data
+df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
 
-print("Data types:")
-print(df.dtypes)
-
-if "Date" in df.columns:
-    df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
-    print("Unspared order Date values:",df["Date"].isna().sum())
-
-df = df.copy()
+for column in ["Quantity", "Price per Unit", "Total Amount"]:
+    df[column] = pd.to_numeric(df[column], errors="coerce")
 
 df = df.drop_duplicates()
 
-for col in ['Sales','Quantity','Profit']:
-    if col in df.columns:
-        df[col] = pd.to_numeric(df[col], errors ="coerce")
+for column in ["Quantity", "Price per Unit", "Total Amount"]:
+    df[column] = df[column].fillna(df[column].median())
 
-numeric_cols = df.select_dtypes(include ='number').columns
-for col in numeric_cols:
-    if df[col].isna().any():
-        df[col] = df[col].fillna(df[col].median())
+df = df.dropna(subset=["Date", "Product Category", "Total Amount"])
 
-key_cols =[col for c in ["Date","Product","Sales"] if c in df.columns]
-if key_cols:
-    df = df.dropna(subset = key_cols)
-
-
-print("Rows after cleaning:",len(df))
+print("\nRows after cleaning:", len(df))
 print("Missing values after cleaning:")
 print(df.isna().sum())
-print("Duplicates adfter cleaning:",df.duplicated().sum())
+print("Duplicate rows after cleaning:", df.duplicated().sum())
 
-df.to_csv("retail_sales-dataset.csv",index = False)
-print("Saved:retail_sales_dataset.csv")
+df.to_csv(cleaned_file, index=False)
+print(f"\nCleaned data saved to: {cleaned_file.name}")
 
+# Show sales summary
+print(f"\nTotal sales: {df['Total Amount'].sum():,.2f}")
+print(f"Average sale: {df['Total Amount'].mean():,.2f}")
+print(f"Largest sale: {df['Total Amount'].max():,.2f}")
+print(f"Smallest sale: {df['Total Amount'].min():,.2f}")
 
-
-df = pd.read_csv("retail_sales_dataset.csv")
-print(df)
-if "Sales" not in df.columns:
-    raise ValueError("Find the correct Sales column name and update this code")
-
-print("Total sales:",round(df["Sales"].sum(),2))
-print("Average Sales per row:",round(df["Sales"].mean(),2))
-print("Largest Sale value:",df["Sales"].max())
-print("Smallest Sale value:",df["Sales"].min())
-
-sales_col = "Total Amount"
-
-
-df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
-df = df.dropna(subset=["Date"]).copy()
 df["Month"] = df["Date"].dt.to_period("M")
 monthly_sales = df.groupby("Month")["Total Amount"].sum().sort_index()
-print("Monthly sales:") 
+print("\nMonthly sales:")
 print(monthly_sales)
 
-# Top product categories
-print("\nTop 5 Product Categories:")
-top_products = (
+category_sales = (
     df.groupby("Product Category")["Total Amount"]
     .sum()
     .sort_values(ascending=False)
-    .head(5)
 )
-print(top_products)
+print("\nSales by product category:")
+print(category_sales)
